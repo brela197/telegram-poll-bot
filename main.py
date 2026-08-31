@@ -1,23 +1,7 @@
 import os
 import re
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
-
-# Dummy Web Server per Render
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"Bot is running")
-
-def run_dummy_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_dummy_server, daemon=True).start()
 
 async def gestisci_messaggio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
