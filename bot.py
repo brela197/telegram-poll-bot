@@ -3,7 +3,7 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
-# 1. CREAZIONE DEL SERVER WEB PER RENDER (Risponde con "Bot is running!" per evitare i blocchi)
+# 1. SERVER WEB PER RENDER
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -12,37 +12,47 @@ class SimpleHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Bot is running!")
 
 def run_server():
-    # Render assegna la porta dinamicamente. Se non esiste, usa la 10000 di default
     port = int(os.environ.get('PORT', 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
 # 2. FUNZIONI DEL BOT TELEGRAM
 async def start(update, context):
-    await update.message.reply_text("Ciao! Il bot è attivo. Usa ad esempio /8 o /730 per inviare il sondaggio.")
+    await update.message.reply_text(
+        "Ciao! Il bot è attivo.\n\n"
+        "Esempi comandi:\n"
+        "• `/8` o `/730` per sondaggio Singolo\n"
+        "• `/8D` o `/730D` per sondaggio Doppio"
+    )
 
 async def handle_time_poll(update, context):
-    text = update.message.text.strip()
+    raw_text = update.message.text.strip().upper()  # Trasforma in maiuscolo per gestire sia 'd' che 'D'
     
-    # Rimuove sia "/h" che "/" iniziale per isolare solo i numeri
-    time_str = text.replace("/h", "").replace("/", "")
+    # Controlla se il comando finisce con 'D' (Sondaggio Doppio)
+    is_double = raw_text.endswith('D')
     
-    # Se inserisci solo l'ora da 1 a 2 cifre (es. /8 o /21), aggiunge in automatico i minuti :00
+    # Pulisce il testo eliminando la 'D', il '/h' e la '/' iniziale per isolare solo i numeri dell'orario
+    time_str = raw_text.replace("D", "").replace("/H", "").replace("/", "")
+    
+    # Formattazione dell'orario (identica alla tua logica precedente)
     if len(time_str) <= 2:
         formatted_time = f"{time_str.zfill(2)}:00"
-    # Se inserisci 3 cifre (es. /730 -> 07:30)
     elif len(time_str) == 3:
         formatted_time = f"0{time_str[0]}:{time_str[1:]}"
-    # Se inserisci 4 cifre (es. /1203 -> 12:03)
     elif len(time_str) == 4:
         formatted_time = f"{time_str[:2]}:{time_str[2:]}"
     else:
         formatted_time = time_str
 
-    question = f"⏰ {formatted_time} ➡️ BOOST ARTICOLO ❤️ Ci siete?"
-    # Opzioni con i quadratini colorati e sondaggio non anonimo (is_anonymous=False)
-    options = ["🟩 Ci sono 💯💯💯", "🟥 No 🙂‍↔️  "]
+    # Configura il testo e le opzioni in base al tipo di sondaggio scelto
+    if is_double:
+        question = f"⏰ {formatted_time} ➡️ BOOST ARTICOLO DOPPIO 💖💖 Ci siete??"
+        options = ["🟩 Siiii 💯💯💯", "🟥 No 🫠"]
+    else:
+        question = f"⏰ {formatted_time} ➡️ BOOST ARTICOLO ❤️ Ci siete?"
+        options = ["🟩 Ci sono 💯💯💯", "🟥 No 🙂‍↔️  "]
     
+    # Invia il sondaggio selezionato
     await context.bot.send_poll(
         chat_id=update.effective_chat.id,
         question=question,
@@ -57,16 +67,14 @@ def main():
         print("Errore: TELEGRAM_BOT_TOKEN non trovato!")
         return
 
-    # Avvia l'UNICO server web in background per soddisfare Render
     threading.Thread(target=run_server, daemon=True).start()
 
-    # Inizializza l'applicazione del bot (Libreria python-telegram-bot v20+)
     app = ApplicationBuilder().token(token).build()
     
     app.add_handler(CommandHandler("start", start))
     
-    # Cattura sia i comandi corti (es. /8) che quelli completi (es. /730, /1203, /h1203)
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}$")
+    # Cattura i comandi numerici che possono avere opzionalmente una 'd' o 'D' alla fine (es. /8, /8d, /730D, /h1203d)
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     print("Bot avviato con successo!")
