@@ -15,7 +15,7 @@ def run_server():
     server.serve_forever()
 
 async def start(update, context):
-    await update.message.reply_text("Ciao! Il bot è attivo. Usa /8 per le 8:00 oppure /1203 per un orario preciso.")
+    await update.message.reply_text("Ciao! Il bot è attivo. Usa ad esempio /8 o /730 per inviare il sondaggio.")
 
 async def handle_time_poll(update, context):
     text = update.message.text.strip()
@@ -26,7 +26,7 @@ async def handle_time_poll(update, context):
     # Se inserisci solo l'ora da 1 a 2 cifre (es. /8 o /21), aggiunge in automatico i minuti :00
     if len(time_str) <= 2:
         formatted_time = f"{time_str.zfill(2)}:00"
-    # Se inserisci 3 cifre (es. /830 -> 08:30)
+    # Se inserisci 3 cifre (es. /730 -> 07:30)
     elif len(time_str) == 3:
         formatted_time = f"0{time_str[0]}:{time_str[1:]}"
     # Se inserisci 4 cifre (es. /1203 -> 12:03)
@@ -36,28 +36,30 @@ async def handle_time_poll(update, context):
         formatted_time = time_str
 
     question = f"⏰ {formatted_time} ➡️ BOOST ARTICOLO ❤️ Ci siete?"
-    options = ["Presente", "Assente"]
+    # Opzioni con i quadratini colorati e sondaggio non anonimo (is_anonymous=False)
+    options = ["🟩 Ci sono 💯💯💯", "🟥 No 🙂‍↔️  "]
     
     await context.bot.send_poll(
-    chat_id=update.effective_chat.id,
-    question=question,
-    options=options,
-    is_anonymous=False
-)
+        chat_id=update.effective_chat.id,
+        question=question,
+        options=options,
+        is_anonymous=False
+    )
+
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Errore: TELEGRAM_BOT_TOKEN non trovato!")
         return
 
-    # Avvia il server web per Render
+    # Avvia il server web per Render (mantiene il bot sempre attivo)
     threading.Thread(target=run_server, daemon=True).start()
 
     app = ApplicationBuilder().token(token).build()
     
     app.add_handler(CommandHandler("start", start))
     
-    # Cattura sia i comandi corti (es. /8, /21) che quelli lunghi (es. /1203, /h1203)
+    # Cattura sia i comandi corti (es. /8) che quelli completi (es. /730, /1203, /h1203)
     time_filter = filters.Regex(r"^/(h)?\d{1,4}$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
@@ -66,3 +68,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
