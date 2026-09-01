@@ -15,16 +15,21 @@ def run_server():
     server.serve_forever()
 
 async def start(update, context):
-    await update.message.reply_text("Ciao! Il bot è attivo. Scrivi ad esempio /h2100 o /h0730 per inviare il sondaggio.")
+    await update.message.reply_text("Ciao! Il bot è attivo. Usa /8 per le 8:00 oppure /1203 per un orario preciso.")
 
-# Gestore dinamico per qualsiasi orario (es. /h700, /h2100, /h2330)
 async def handle_time_poll(update, context):
     text = update.message.text.strip()
-    time_str = text.replace("/h", "")
     
-    # Formatta l'orario in modo pulito (es. da 2100 a 21:00 o da 700 a 07:00)
-    if len(time_str) == 3:
+    # Rimuove sia "/h" che "/" iniziale per isolare solo i numeri
+    time_str = text.replace("/h", "").replace("/", "")
+    
+    # Se inserisci solo l'ora da 1 a 2 cifre (es. /8 o /21), aggiunge in automatico i minuti :00
+    if len(time_str) <= 2:
+        formatted_time = f"{time_str.zfill(2)}:00"
+    # Se inserisci 3 cifre (es. /830 -> 08:30)
+    elif len(time_str) == 3:
         formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+    # Se inserisci 4 cifre (es. /1203 -> 12:03)
     elif len(time_str) == 4:
         formatted_time = f"{time_str[:2]}:{time_str[2:]}"
     else:
@@ -53,8 +58,8 @@ def main():
     
     app.add_handler(CommandHandler("start", start))
     
-    # Cattura in automatico qualsiasi comando che inizia per /h seguito da 3 o 4 numeri
-    time_filter = filters.Regex(r"^/h\d{3,4}$")
+    # Cattura sia i comandi corti (es. /8, /21) che quelli lunghi (es. /1203, /h1203)
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     print("Bot avviato con successo!")
@@ -62,4 +67,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-  
