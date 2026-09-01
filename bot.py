@@ -3,17 +3,21 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
+# 1. CREAZIONE DEL SERVER WEB PER RENDER (Risponde con "Bot is running!" per evitare i blocchi)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
+        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"Bot is running!")
 
 def run_server():
+    # Render assegna la porta dinamicamente. Se non esiste, usa la 10000 di default
     port = int(os.environ.get('PORT', 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
+# 2. FUNZIONI DEL BOT TELEGRAM
 async def start(update, context):
     await update.message.reply_text("Ciao! Il bot è attivo. Usa ad esempio /8 o /730 per inviare il sondaggio.")
 
@@ -46,15 +50,17 @@ async def handle_time_poll(update, context):
         is_anonymous=False
     )
 
+# 3. FUNZIONE PRINCIPALE
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
         print("Errore: TELEGRAM_BOT_TOKEN non trovato!")
         return
 
-    # Avvia il server web per Render (mantiene il bot sempre attivo)
+    # Avvia l'UNICO server web in background per soddisfare Render
     threading.Thread(target=run_server, daemon=True).start()
 
+    # Inizializza l'applicazione del bot (Libreria python-telegram-bot v20+)
     app = ApplicationBuilder().token(token).build()
     
     app.add_handler(CommandHandler("start", start))
