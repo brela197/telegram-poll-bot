@@ -39,12 +39,11 @@ async def handle_time_poll(update, context):
     options = ["Presente", "Assente"]
     
     await context.bot.send_poll(
-        chat_id=update.effective_chat.id,
-        question=question,
-        options=options,
-        is_anonymous=True
-    )
-
+    chat_id=update.effective_chat.id,
+    question=question,
+    options=options,
+    is_anonymous=False
+)
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
