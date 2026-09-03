@@ -1,6 +1,6 @@
 import os
 import threading
-import random  # <--- Nuovo modulo per la scelta casuale
+import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
@@ -47,7 +47,7 @@ async def handle_time_poll(update, context):
             # SONDAGGI DOPPI (Comandi con la 'D' finale)
             varianti_doppie = [
                 {
-                    "question": f"📊 SONDAGGIO ATTIVO\n\n⏰ Orario: {formatted_time}\n🔥 Obiettivo: DOPPIO BOOST 💖💖\n\nRaddoppiamo la força, ci siete?? 👇",
+                    "question": f"📊 SONDAGGIO ATTIVO\n\n⏰ Orario: {formatted_time}\n🔥 Obiettivo: DOPPIO BOOST 💖💖\n\nRaddoppiamo la forza, ci siete?? 👇",
                     "options": ["🟩 Siiii! 🚀🚀", "🟥 Oggi no 🫠"]
                 },
                 {
@@ -102,6 +102,12 @@ def main():
     
     time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
+
+    print("Bot avviato con successo in modalita Polling!")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
 
     print("Bot avviato con successo in modalita Polling!")
     app.run_polling()
