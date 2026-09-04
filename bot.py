@@ -4,7 +4,7 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
-# 1. SERVER WEB PER IMPEDIRE LO SLEEP DI RENDER
+# 1. SERVER WEB PER RENDER E UPTIMEROBOT
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -20,9 +20,9 @@ def run_server():
 # 2. FUNZIONI DEL BOT TELEGRAM
 async def start(update, context):
     await update.message.reply_text(
-        "Ciao! Il bot è attivo con grafiche casuali.\n\n"
-        "• `/8` o `/730` per sondaggio Singolo (Random)\n"
-        "• `/8D` o `/730D` per sondaggio Doppio (Random)"
+        "Ciao! Il bot è attivo con grafiche super semplici e casuali.\n\n"
+        "• `/8` o `/730` per sondaggio Singolo (Semplificato Random)\n"
+        "• `/8D` o `/730D` per sondaggio Doppio (Semplificato Random)"
     )
 
 async def handle_time_poll(update, context):
@@ -36,27 +36,27 @@ async def handle_time_poll(update, context):
         if len(time_str) <= 2:
             formatted_time = f"{time_str.zfill(2)}:00"
         elif len(time_str) == 3:
-            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+            formatted_time = f"0{time_str}:{time_str[1:]}"
         elif len(time_str) == 4:
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
             formatted_time = time_str
 
-        # ELENCO DELLE OPZIONI GRAFICHE CASUALI
+        # NUOVE VARIANTI SUPER SEMPLICI E CHIARE
         if is_double:
             # SONDAGGI DOPPI (Comandi con la 'D' finale)
             varianti_doppie = [
                 {
-                    "question": f"📊 SONDAGGIO ATTIVO\n\n⏰ Orario: {formatted_time}\n🔥 Obiettivo: DOPPIO BOOST 💖💖\n\nRaddoppiamo la forza, ci siete?? 👇",
-                    "options": ["🟩 Siiii! 🚀🚀", "🟥 Oggi no 🫠"]
+                    "question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇",
+                    "options": ["🟩 Sì, partecipo a entrambi! 💯", "🟥 No, salto questo turno"]
                 },
                 {
-                    "question": f"💥 SUPER BOOST DOPPIO 💥\n\n📌 Appuntamento alle ore {formatted_time}\n💖 Due articoli da spingere al massimo!\n\nCarichi per la doppietta? 🔥",
-                    "options": ["⚡ DOPPIETTA PRONTA 🟩", "💤 Passo il turno 🟥"]
+                    "question": f"⏰ ORE {formatted_time} ➡️ DOPPIO BOOST 💖💖\n\nVota sotto se ci sei adesso: 👇",
+                    "options": ["🟩 CI SONO PER ENTRAMBI! 🔥", "🟥 NON CI SONO ❌"]
                 },
                 {
-                    "question": f"⌛ NOTIFICA PROGRAMMATA\n\n• Slot Orario: {formatted_time}\n• Attività: Boost Doppia Recensione 💖💖\n\nConferma la tua presenza qui sotto:",
-                    "options": ["🟢 Confermo per entrambi", "🔴 Impossibilitato"]
+                    "question": f"👋 Ragazzi, c'è il DOPPIO BOOST! (Ore {formatted_time}) 💖💖\n\nChi vuole fare doppietta di visualizzazioni adesso? 👇",
+                    "options": ["🟩 Io ci sono per tutti e due! 🙋‍♀️", "🟥 Io passo"]
                 }
             ]
             scelta = random.choice(varianti_doppie)
@@ -64,16 +64,16 @@ async def handle_time_poll(update, context):
             # SONDAGGI SINGOLI (Comandi normali)
             varianti_singole = [
                 {
-                    "question": f"📊 SONDAGGIO ATTIVO\n\n⏰ Orario: {formatted_time}\n🎯 Obiettivo: BOOST ARTICOLO ❤️\n\nCi siete per supportare il post? 👇",
-                    "options": ["🟩 Ci sono! 💯", "🟥 Non riesco 🚫"]
+                    "question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
+                    "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
                 },
                 {
-                    "question": f"⚡ TEAM BOOST ⚡\n\n📌 Appuntamento alle ore {formatted_time}\n❤️ Lasciamo il segno sull'articolo!\n\nPronti a cliccare? 🚀",
-                    "options": ["✅ PRESENTE 🟩", "❌ ASSENTE 🟥"]
+                    "question": f"⏰ ORE {formatted_time} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇",
+                    "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]
                 },
                 {
-                    "question": f"⌛ NOTIFICA PROGRAMMATA\n\n• Slot Orario: {formatted_time}\n• Attività: Boost Articolo Dedicato ❤️\n\nConferma la tua presenza qui sotto:",
-                    "options": ["🟢 Confermo disponibilità", "🔴 Non disponibile"]
+                    "question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {formatted_time}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇",
+                    "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]
                 }
             ]
             scelta = random.choice(varianti_singole)
@@ -100,6 +100,14 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
+    app.add_handler(MessageHandler(time_filter, handle_time_poll))
+
+    print("Bot avviato con successo in modalita Polling!")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
     time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
