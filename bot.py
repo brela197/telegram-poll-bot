@@ -108,18 +108,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
-    app.add_handler(MessageHandler(time_filter, handle_time_poll))
-
-    print("Bot avviato con successo in modalita Polling!")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
-
-    print("Bot avviato con successo in modalita Polling!")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
-    
