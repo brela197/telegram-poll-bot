@@ -4,13 +4,19 @@ import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 
-# 1. SERVER WEB PER RENDER E UPTIMEROBOT
+# 1. SERVER WEB PER IMPEDIRE LO SLEEP DI RENDER (Gestisce GET e HEAD)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(b"<html><head><title>Bot Status</title></head><body><h1>Bot is actively running!</h1></body></html>")
+
+    def do_HEAD(self):
+        # Gestisce le richieste HEAD inviate da UptimeRobot evitando l'errore 501
+        self.send_response(200)
+        self.send_header("Content-type", "text/html; charset=utf-8")
+        self.end_headers()
 
 def run_server():
     port = int(os.environ.get('PORT', 10000))
@@ -42,9 +48,8 @@ async def handle_time_poll(update, context):
         else:
             formatted_time = time_str
 
-        # NUOVE VARIANTI SUPER SEMPLICI E CHIARE
+        # VARIANTI SUPER SEMPLICI E CHIARE
         if is_double:
-            # SONDAGGI DOPPI (Comandi con la 'D' finale)
             varianti_doppie = [
                 {
                     "question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇",
@@ -61,7 +66,6 @@ async def handle_time_poll(update, context):
             ]
             scelta = random.choice(varianti_doppie)
         else:
-            # SONDAGGI SINGOLI (Comandi normali)
             varianti_singole = [
                 {
                     "question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
@@ -78,7 +82,6 @@ async def handle_time_poll(update, context):
             ]
             scelta = random.choice(varianti_singole)
         
-        # Invia il sondaggio scelto casualmente
         await context.bot.send_poll(
             chat_id=update.effective_chat.id,
             question=scelta["question"],
@@ -100,6 +103,14 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
+    app.add_handler(MessageHandler(time_filter, handle_time_poll))
+
+    print("Bot avviato con successo in modalita Polling!")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
     time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
