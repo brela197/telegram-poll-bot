@@ -48,6 +48,7 @@ async def gestisci_comando_orario(update: Update, context: ContextTypes.DEFAULT_
     except Exception as e:
         logging.error(f"Errore invio sondaggio: {e}")
 
+# RIGA 53 RIPARATA: Ora è def main()
 def main():
     app = Application.builder().token(TOKEN_SONDAGGI).build()
     
