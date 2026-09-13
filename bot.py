@@ -1,121 +1,61 @@
-import os
-import threading
-import random
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+import logging, re
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters
+)
 
-# 1. SERVER WEB PER IMPEDIRE LO SLEEP DI RENDER (Gestisce GET e HEAD)
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(b"<html><head><title>Bot Status</title></head><body><h1>Bot is actively running!</h1></body></html>")
+# ⚙️ CONFIGURAZIONE PARAMETRI ESSENZIALI
+TOKEN_SONDAGGI = "8190766468:AAFlZco9w7v9uK_U6U_N3eF9Yv1_Vlw8Wuo"
+ID_GRUPPO_TARGET = -1001993054666
 
-    def do_HEAD(self):
-        # Gestisce le richieste HEAD inviate da UptimeRobot evitando l'errore 501
-        self.send_response(200)
-        self.send_header("Content-type", "text/html; charset=utf-8")
-        self.end_headers()
+logging.basicConfig(level=logging.INFO)
 
-def run_server():
-    port = int(os.environ.get('PORT', 10000))
-    server = HTTPServer(('0.0.0.0', port), SimpleHandler)
-    server.serve_forever()
-
-# 2. FUNZIONI DEL BOT TELEGRAM
-async def start(update, context):
-    await update.message.reply_text(
-        "Ciao! Il bot è attivo con grafiche super semplici e casuali.\n\n"
-        "• `/8` o `/730` per sondaggio Singolo (Semplificato Random)\n"
-        "• `/8D` o `/730D` per sondaggio Doppio (Semplificato Random)"
-    )
-
-async def handle_time_poll(update, context):
-    try:
-        raw_text = update.message.text.strip().upper()
-        is_double = raw_text.endswith('D')
-        
-        # Isola i numeri dell'orario
-        time_str = raw_text.replace("D", "").replace("/H", "").replace("/", "")
-        
-        if len(time_str) <= 2:
-            formatted_time = f"{time_str.zfill(2)}:00"
-        elif len(time_str) == 3:
-            formatted_time = f"0{time_str}:{time_str[1:]}"
-        elif len(time_str) == 4:
-            formatted_time = f"{time_str[:2]}:{time_str[2:]}"
-        else:
-            formatted_time = time_str
-
-        # VARIANTI SUPER SEMPLICI E CHIARE
-        if is_double:
-            varianti_doppie = [
-                {
-                    "question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇",
-                    "options": ["🟩 Sì, partecipo a entrambi! 💯", "🟥 No, salto questo turno"]
-                },
-                {
-                    "question": f"⏰ ORE {formatted_time} ➡️ DOPPIO BOOST 💖💖\n\nVota sotto se ci sei adesso: 👇",
-                    "options": ["🟩 CI SONO PER ENTRAMBI! 🔥", "🟥 NON CI SONO ❌"]
-                },
-                {
-                    "question": f"👋 Ragazzi, c'è il DOPPIO BOOST! (Ore {formatted_time}) 💖💖\n\nChi vuole fare doppietta di visualizzazioni adesso? 👇",
-                    "options": ["🟩 Io ci sono per tutti e due! 🙋‍♀️", "🟥 Io passo"]
-                }
-            ]
-            scelta = random.choice(varianti_doppie)
-        else:
-            varianti_singole = [
-                {
-                    "question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
-                    "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
-                },
-                {
-                    "question": f"⏰ ORE {formatted_time} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇",
-                    "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]
-                },
-                {
-                    "question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {formatted_time}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇",
-                    "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]
-                }
-            ]
-            scelta = random.choice(varianti_singole)
-        
-        await context.bot.send_poll(
-            chat_id=update.effective_chat.id,
-            question=scelta["question"],
-            options=scelta["options"],
-            is_anonymous=False
-        )
-    except Exception as e:
-        print(f"Errore durante la gestione del sondaggio: {e}")
-
-# 3. FUNZIONE PRINCIPALE
-def main():
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        print("Errore: TELEGRAM_BOT_TOKEN non trovato!")
-        return
-
-    threading.Thread(target=run_server, daemon=True).start()
-
-    app = ApplicationBuilder().token(token).build()
-    app.add_handler(CommandHandler("start", start))
+# 📊 FUNZIONE CHIAVE: Genera il sondaggio con l'orario formattato bene
+async def gestisci_comando_orario(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat or update.effective_chat.id != ID_GRUPPO_TARGET: return
+    txt = update.message.text if update.message else ""
+    if not txt: return
     
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
-    app.add_handler(MessageHandler(time_filter, handle_time_poll))
+    # Riconosce i comandi del tipo /h0945 o /h945 o /945
+    match = re.search(r'/?h?(\d{3,4})', txt.lower())
+    if not match: return
+    
+    cifre = match.group(1)
+    # Se mancano cifre (es: 945), aggiunge lo zero iniziale (0945)
+    if len(cifre) == 3: cifre = "0" + cifre
+    
+    # ⏱️ CORREZIONE ORARIO: Trasforma "0945" in "09:45"
+    ora_pulita = f"{cifre[:2]}:{cifre[2:]}"
+    
+    titolo = f"👋 Ragazzi, è l'ora del BOOST! (Ore {ora_pulita}) ❤️"
+    opzioni = ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora 🤷‍♀️"]
+    
+    try:
+        # Invia il sondaggio ufficiale nel gruppo
+        await context.bot.send_poll(
+            chat_id=ID_GRUPPO_TARGET,
+            question=titolo,
+            options=opzioni,
+            is_anonymous=False,
+            allows_multiple_answers=False
+        )
+        # Cancella il comando dell'admin per tenere pulito il gruppo
+        await update.message.delete()
+    except Exception as e:
+        logging.error(f"Errore invio sondaggio: {e}")
 
-    print("Bot avviato con successo in modalita Polling!")
-    app.run_polling()
+def main():
+    app = Application.builder().token(TOKEN_SONDAGGI).build()
+    
+    # Gestisce sia i comandi con la /h sia i messaggi di testo semplici dello staff
+    app.add_handler(CommandHandler(re.compile(r'^h\d+$'), gestisci_comando_orario))
+    app.add_handler(MessageHandler(filters.Regex(r'^/?h?\d+$'), gestisci_comando_orario))
+    
+    logging.info("Bot dei sondaggi avviato con successo su Render!")
+    app.run_polling(drop_pending_updates=True)
 
-if __name__ == '__main__':
-    main()
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
-    app.add_handler(MessageHandler(time_filter, handle_time_poll))
-
-    print("Bot avviato con successo in modalita Polling!")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
+main()
