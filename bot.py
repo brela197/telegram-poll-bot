@@ -122,12 +122,12 @@ async def handle_time_poll(update, context):
             ]
             question = random.choice(varianti_singole_flash)
 
-        await context.bot.send_poll(update.effective_chat.id, question=question, options=options, is_anonymous=anonimo)
+        await context.bot.send_poll(chat_id=update.effective_chat.id, question=question, options=options, is_anonymous=anonimo)
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
 # 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN
-def main():
+async def main_async():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
 
@@ -160,7 +160,21 @@ def main():
     
     scheduler.start()
     print("Sistema avviato con sblocco permessi personalizzato!")
-    app.run_polling(close_loop=False)
+    
+    # Inizializzazione corretta asincrona dell'applicazione prima del polling
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(close_loop=False)
+    
+    # Mantiene il loop attivo all'infinito per non far spegnere i timer
+    while True:
+        await asyncio.sleep(3600)
+
+def main():
+    try:
+        asyncio.run(main_async())
+    except Exception as e:
+        print(f"Errore ciclo principale: {e}")
 
 if __name__ == '__main__':
     main()
