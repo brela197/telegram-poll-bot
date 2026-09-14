@@ -25,9 +25,9 @@ class SimpleHandler(BaseHTTPRequestHandler):
 def run_server():
     port = int(os.environ.get('PORT', 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
-    server.forever()
+    server.serve_forever()
 
-# 1. FUNZIONE DELLE :39 (INVIA SONDAGGIO, PINNA E CHIUDE CHAT)
+# FUNZIONE DELLE :39 (INVIA SONDAGGIO, PINNA E CHIUDE CHAT)
 async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
@@ -40,24 +40,21 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     scelta = random.choice(varianti_singole)
 
     try:
-        # Invia e fissa il sondaggio
         poll_message = await app.bot.send_poll(chat_id=chat_id, question=scelta["question"], options=scelta["options"], is_anonymous=False)
         await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
         
-        # BLOCCO CHAT: Toglie i permessi di scrittura ai membri semplici
         permissions = ChatPermissions(can_send_messages=False)
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
         print(f"Sondaggio delle {orario_boost} inviato e chat bloccata al minuto :39!")
     except Exception as e:
         print(f"Errore in fase di chiusura chat: {e}")
 
-# 2. FUNZIONE DELLE :59 (SBLOCCA SOLO LA CHAT PER LASCIARE SPAZIO A GROUPHELP)
+# FUNZIONE DELLE :59 (SBLOCCA LA CHAT PER LASCIARE SPAZIO A GROUPHELP)
 async def task_apertura_chat(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
     try:
-        # SBLOCCO CHAT: Ripristina tutti i permessi normali di scrittura per il gruppo
         permissions = ChatPermissions(
             can_send_messages=True,
             can_send_audios=True,
@@ -71,20 +68,18 @@ async def task_apertura_chat(app, orario_boost):
             can_add_web_page_previews=True
         )
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Chat sbloccata con successo al minuto :59 per il boost delle {orario_boost}!")
+        print(f"Chat sbloccata con successo per il boost delle {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
-# Funzioni ponte per il loop asincrono
 def ponte_chiusura(app, orario_boost):
     asyncio.run_coroutine_threadsafe(task_sondaggio_e_chiusura(app, orario_boost), app.loop)
 
 def ponte_apertura(app, orario_boost):
     asyncio.run_coroutine_threadsafe(task_apertura_chat(app, orario_boost), app.loop)
-
-# 3. GESTIONE COMANDI MANUALI (Attivi per le emergenze)
+# GESTIONE COMANDI MANUALI (Attivi per le emergenze)
 async def start(update, context):
-    await update.message.reply_text("Bot attivo. Chiusura automatica a :39 e sblocco a :59.")
+    await update.message.reply_text("Bot attivo in modalita Webhook con chiusura a :39 e sblocco a :59.")
 
 async def handle_time_poll(update, context):
     try:
@@ -138,7 +133,7 @@ async def handle_time_poll(update, context):
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (Chiusura a :39 e apertura a :59)
+# PROGRAMMAZIONE AUTOMATICA LUN-VEN
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
@@ -152,7 +147,6 @@ def main():
 
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
     
-    # turni orari del gruppo
     turni = [
         {"ora_boost": "08:00", "h_chiusura": 7, "m_chiusura": 39, "h_apertura": 7, "m_apertura": 59},
         {"ora_boost": "10:00", "h_chiusura": 9, "m_chiusura": 39, "h_apertura": 9, "m_apertura": 59},
@@ -168,14 +162,22 @@ def main():
     ]
     
     for t in turni:
-        # Chiude la chat a :39
         scheduler.add_job(ponte_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
-        # Riapre la chat a :59 per lo START di GroupHelp
         scheduler.add_job(ponte_apertura, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema di blocco chat aggiornato con chiusura a :39!")
-    app.run_polling(close_loop=False)
+    print("Sistema di blocco chat avviato in modalita Webhook!")
+    
+    # AVVIO ASINCRONO IN WEBHOOK (Risolve il conflitto e libera la linea per l'altro bot)
+    port = int(os.environ.get('PORT', 10000))
+    render_url = os.environ.get("RENDER_EXTERNAL_URL", "https://onrender.com")
+    
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=token,
+        webhook_url=f"{render_url}/{token}"
+    )
 
 if __name__ == '__main__':
     main()
