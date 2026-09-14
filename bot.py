@@ -27,31 +27,48 @@ async def start(update, context):
     await update.message.reply_text(
         "Ciao! Il bot è attivo con grafiche super semplici e casuali.\n\n"
         "• `/8` o `/730` per sondaggio Singolo (Semplificato Random)\n"
-        "• `/8D` o `/730D` per sondaggio Doppio (Semplificato Random)"
+        "• `/8D` o `/730D` per sondaggio Doppio (Semplificato Random)\n"
+        "• `/8I` o `/730I` per sondaggio Anonimo Con Messaggio Info (Nuovo) 📝"
     )
 
 async def handle_time_poll(update, context):
     try:
         raw_text = update.message.text.strip().upper()
+        
+        # Riconosce il tipo di sondaggio dalla lettera finale
         is_double = raw_text.endswith('D')
+        is_info = raw_text.endswith('I')
         
-        # Isola i numeri dell'orario rimuovendo lettere e simboli minori
-        time_str = raw_text.replace("D", "").replace("/H", "").replace("/", "")
+        # Isola i numeri dell'orario rimuovendo le lettere D, I, H e la barra /
+        time_str = raw_text.replace("D", "").replace("I", "").replace("/H", "").replace("/", "")
         
-        # CORREZIONE COMPLETA E DEFINITIVA DELLA FORMATTAZIONE
+        # Formattazione dell'orario
         if len(time_str) <= 2:
             formatted_time = f"{time_str.zfill(2)}:00"
         elif len(time_str) == 3:
-            # Es: 945 -> Prende il primo numero '9' (aggiunge lo 0 davanti) e poi gli ultimi due '45' -> 09:45
             formatted_time = f"0{time_str[0]}:{time_str[1:]}"
         elif len(time_str) == 4:
-            # Es: 1230 -> Prende i primi due '12' e poi gli ultimi due '30' -> 12:30
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
             formatted_time = time_str
 
-        # VARIANTI SUPER SEMPLICI E CHIARE
-        if is_double:
+        # Inizializziamo le variabili del sondaggio
+        question = ""
+        options = []
+        anonimo = False  # Di default i vecchi sondaggi restano NON anonimi
+
+        # CONTROLLO E CREAZIONE DEL TIPO DI SONDAGGIO
+        if is_info:
+            # 🆕 NUOVO SONDAGGIO ANONIMO CON MESSAGGIO INFO (Preso dalla foto)
+            anonimo = True
+            question = (
+                f"⏰ {formatted_time} ➡️ˢᴼᴼᴺ BOOST ARTICOLO ❤️ CON MESSAGGIO INFO ✉️\n\n"
+                f"🧧 Accessibile solo a 10 link max 🧧 Inviare messaggi reali all'articolo/no emoticon 🚨"
+            )
+            options = ["Yesss 🍊🍊🍊", "✖️"]
+            
+        elif is_double:
+            # SONDAGGI DOPPI (Comandi con la 'D' finale)
             varianti_doppie = [
                 {
                     "question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇",
@@ -67,7 +84,11 @@ async def handle_time_poll(update, context):
                 }
             ]
             scelta = random.choice(varianti_doppie)
+            question = scelta["question"]
+            options = scelta["options"]
+            
         else:
+            # SONDAGGI SINGOLI (Comandi normali)
             varianti_singole = [
                 {
                     "question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
@@ -83,12 +104,15 @@ async def handle_time_poll(update, context):
                 }
             ]
             scelta = random.choice(varianti_singole)
+            question = scelta["question"]
+            options = scelta["options"]
         
+        # Invia il sondaggio configurato
         await context.bot.send_poll(
             chat_id=update.effective_chat.id,
-            question=scelta["question"],
-            options=scelta["options"],
-            is_anonymous=False
+            question=question,
+            options=options,
+            is_anonymous=anonimo
         )
     except Exception as e:
         print(f"Errore durante la gestione del sondaggio: {e}")
@@ -105,7 +129,8 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dD]?$")
+    # Aggiornato il filtro per catturare opzionalmente anche le lettere d, D, i, I alla fine
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}[dDiI]?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     print("Bot avviato con successo in modalita Polling!")
