@@ -54,7 +54,7 @@ async def handle_time_poll(update, context):
         if len(time_str) <= 2:
             formatted_time = f"{time_str.zfill(2)}:00"
         elif len(time_str) == 3:
-            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+            formatted_time = f"0{time_str}:{time_str[1:]}"
         elif len(time_str) == 4:
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
@@ -159,8 +159,8 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
-    # Filtro Regex aggiornato per intercettare i nuovi suffissi numerici e testuali (a4, a6, a10)
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$", filters.Regex.CASE_INSENSITIVE)
+    # Filtro Regex corretto senza l'opzione invalida
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     print("Bot avviato con successo in modalita Polling!")
