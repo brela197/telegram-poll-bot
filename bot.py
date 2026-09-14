@@ -140,8 +140,8 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
-    # Filtro Regex pulito e perfettamente valido
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
+    # MODIFICA APPLICATA: (?i) rende il filtro insensibile a maiuscole/minuscole in modo nativo su Telegram
+    time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
