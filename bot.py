@@ -32,7 +32,6 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
-    # Grafica fissa e pulita come da te richiesta per gli appuntamenti giornalieri
     question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️\n\nPartecipi al turno fisso di adesso? Clicca sotto! 👇"
     options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
@@ -81,18 +80,23 @@ async def start(update, context):
 
 async def handle_time_poll(update, context):
     try:
+        # Trasforma tutto in MAIUSCOLO per evitare blocchi con le lettere minuscole
         raw_text = update.message.text.strip().upper()
+        
         is_info = raw_text.endswith('I')
         is_a4 = raw_text.endswith('A4')
         is_a6 = raw_text.endswith('A6')
         is_a10 = raw_text.endswith('A10')
         is_double = raw_text.endswith('D') and not (is_a4 or is_a6 or is_a10 or is_info)
         
+        # Pulizia rigorosa per isolare solo i numeri dell'orario
         time_str = raw_text.replace("/H", "").replace("/", "")
-        for suffix in ["A10", "A4", "A6", "D", "I"]: time_str = time_str.replace(suffix, "")
+        for suffix in ["A10", "A4", "A6", "D", "I"]:
+            time_str = time_str.replace(suffix, "")
         
+        # Formattazione dell'orario
         if len(time_str) <= 2: formatted_time = f"{time_str.zfill(2)}:00"
-        elif len(time_str) == 3: formatted_time = f"0{time_str}:{time_str[1:]}"
+        elif len(time_str) == 3: formatted_time = f"0{time_str[0]}:{time_str[1:]}"
         elif len(time_str) == 4: formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else: formatted_time = time_str
 
@@ -110,7 +114,6 @@ async def handle_time_poll(update, context):
         elif is_a10:
             question = f"⏰ {formatted_time} 👉 🚀BOOST ARMADIO 🚪X10 ❤️\n\nSi pubblica il link armadio Vinted, si ricambia con 10 LIKE ❤️ ogni armadio pubblicato."
         elif is_double:
-            # DOPPIO FLASH (Se lanciato con la D manuale)
             varianti_doppie_flash = [
                 f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO DOPPIO FLASH ⚡\n\nDoppia giocata rapida! Vuoi partecipare adesso? 👇",
                 f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO DOPPIO FLASH ⚡\n\nCarichi per la doppietta extra? Ci sei? 👇",
@@ -119,7 +122,6 @@ async def handle_time_poll(update, context):
             question = random.choice(varianti_doppie_flash)
             options = ["🟩 CI SONO PER ENTRAMBI! 🔥", "🟥 NON CI SONO ❌"]
         else:
-            # SINGOLO FLASH RANDOM (Comando manuale standard, es: /14)
             varianti_singole_flash = [
                 f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO FLASH ⚡\n\nGiocata extra veloce! Vuoi partecipare? 👇",
                 f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO FLASH ⚡\n\nUnisciti al volo al boost rapido! Ci sei? 👇",
@@ -140,7 +142,7 @@ def main():
 
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$", filters.Regex.CASE_INSENSITIVE)
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
@@ -164,7 +166,7 @@ def main():
         scheduler.add_job(ponte_apertura, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato con differenziazione Fissi/Flash!")
+    print("Sistema avviato correttamente!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
