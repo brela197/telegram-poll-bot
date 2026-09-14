@@ -80,7 +80,6 @@ async def start(update, context):
 
 async def handle_time_poll(update, context):
     try:
-        # Trasforma tutto in MAIUSCOLO per evitare blocchi con le lettere minuscole
         raw_text = update.message.text.strip().upper()
         
         is_info = raw_text.endswith('I')
@@ -89,14 +88,12 @@ async def handle_time_poll(update, context):
         is_a10 = raw_text.endswith('A10')
         is_double = raw_text.endswith('D') and not (is_a4 or is_a6 or is_a10 or is_info)
         
-        # Pulizia rigorosa per isolare solo i numeri dell'orario
         time_str = raw_text.replace("/H", "").replace("/", "")
         for suffix in ["A10", "A4", "A6", "D", "I"]:
             time_str = time_str.replace(suffix, "")
         
-        # Formattazione dell'orario
         if len(time_str) <= 2: formatted_time = f"{time_str.zfill(2)}:00"
-        elif len(time_str) == 3: formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+        elif len(time_str) == 3: formatted_time = f"0{time_str}:{time_str[1:]}"
         elif len(time_str) == 4: formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else: formatted_time = time_str
 
@@ -142,7 +139,9 @@ def main():
 
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
-    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$", filters.Regex.CASE_INSENSITIVE)
+    
+    # Filtro Regex pulito e perfettamente valido
+    time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
