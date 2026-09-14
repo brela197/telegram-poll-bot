@@ -4,21 +4,19 @@ import random
 import asyncio
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from telegram import ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from apscheduler.schedulers.background import BackgroundScheduler
 from pytz import timezone
 
-# Fuso orario italiano per evitare sfasamenti con i server americani
 ROMA_TZ = timezone('Europe/Rome')
 
-# 1. SERVER WEB PER IMPEDIRE LO SLEEP DI RENDER (Gestisce GET e HEAD)
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
         self.end_headers()
         self.wfile.write(b"<html><body><h1>Bot is actively running!</h1></body></html>")
-
     def do_HEAD(self):
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
@@ -27,58 +25,66 @@ class SimpleHandler(BaseHTTPRequestHandler):
 def run_server():
     port = int(os.environ.get('PORT', 10000))
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
-    server.serve_forever()
+    server.forever()
 
-# 2. FUNZIONAMENTO PER L'INVIO AUTOMATICO E IL FISSAGGIO (PIN) DEL SONDAGGIO
-async def invia_sondaggio_automatico(app, orario_boost):
+# 1. FUNZIONE DELLE :39 (INVIA SONDAGGIO, PINNA E CHIUDE CHAT)
+async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    if not chat_id:
-        print("Errore: TELEGRAM_CHAT_ID non configurato nelle variabili d'ambiente!")
-        return
+    if not chat_id: return
 
     varianti_singole = [
-        {
-            "question": f"🚀 BOOST ARTICOLO DELLE {orario_boost} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
-            "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
-        },
-        {
-            "question": f"⏰ ORE {orario_boost} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇",
-            "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]
-        },
-        {
-            "question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {orario_boost}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇",
-            "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]
-        }
+        {"question": f"🚀 BOOST ARTICOLO DELLE {orario_boost} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇", "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]},
+        {"question": f"⏰ ORE {orario_boost} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇", "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]},
+        {"question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {orario_boost}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇", "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]}
     ]
     scelta = random.choice(varianti_singole)
 
     try:
-        poll_message = await app.bot.send_poll(
-            chat_id=chat_id,
-            question=scelta["question"],
-            options=scelta["options"],
-            is_anonymous=False
-        )
-        await app.bot.pin_chat_message(
-            chat_id=chat_id,
-            message_id=poll_message.message_id,
-            disable_notification=True
-        )
-        print(f"Sondaggio automatico delle {orario_boost} inviato e fissato in alto!")
+        # Invia e fissa il sondaggio
+        poll_message = await app.bot.send_poll(chat_id=chat_id, question=scelta["question"], options=scelta["options"], is_anonymous=False)
+        await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
+        
+        # BLOCCO CHAT: Toglie i permessi di scrittura ai membri semplici
+        permissions = ChatPermissions(can_send_messages=False)
+        await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
+        print(f"Sondaggio delle {orario_boost} inviato e chat bloccata al minuto :39!")
     except Exception as e:
-        print(f"Errore nell'invio/fissaggio automatico: {e}")
+        print(f"Errore in fase di chiusura chat: {e}")
 
-def pianifica_task(app, orario_boost):
+# 2. FUNZIONE DELLE :59 (SBLOCCA SOLO LA CHAT PER LASCIARE SPAZIO A GROUPHELP)
+async def task_apertura_chat(app, orario_boost):
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    if not chat_id: return
+
     try:
-        loop = app.loop
-        if loop and loop.is_running():
-            asyncio.run_coroutine_threadsafe(invia_sondaggio_automatico(app, orario_boost), loop)
+        # SBLOCCO CHAT: Ripristina tutti i permessi normali di scrittura per il gruppo
+        permissions = ChatPermissions(
+            can_send_messages=True,
+            can_send_audios=True,
+            can_send_documents=True,
+            can_send_photos=True,
+            can_send_videos=True,
+            can_send_video_notes=True,
+            can_send_voice_notes=True,
+            can_send_polls=True,
+            can_send_other_messages=True,
+            can_add_web_page_previews=True
+        )
+        await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
+        print(f"Chat sbloccata con successo al minuto :59 per il boost delle {orario_boost}!")
     except Exception as e:
-        print(f"Errore nel passaggio del task al loop: {e}")
+        print(f"Errore in fase di apertura chat: {e}")
 
-# 3. GESTIONE DEI COMANDI MANUALI (Attivi 7 giorni su 7)
+# Funzioni ponte per il loop asincrono
+def ponte_chiusura(app, orario_boost):
+    asyncio.run_coroutine_threadsafe(task_sondaggio_e_chiusura(app, orario_boost), app.loop)
+
+def ponte_apertura(app, orario_boost):
+    asyncio.run_coroutine_threadsafe(task_apertura_chat(app, orario_boost), app.loop)
+
+# 3. GESTIONE COMANDI MANUALI (Attivi per le emergenze)
 async def start(update, context):
-    await update.message.reply_text("Ciao! Il bot è attivo sia con i sondaggi automatici (Lun-Ven) che con i comandi manuali (Sempre).")
+    await update.message.reply_text("Bot attivo. Chiusura automatica a :39 e sblocco a :59.")
 
 async def handle_time_poll(update, context):
     try:
@@ -90,17 +96,12 @@ async def handle_time_poll(update, context):
         is_double = raw_text.endswith('D') and not (is_a4 or is_a6 or is_a10 or is_info)
         
         time_str = raw_text.replace("/H", "").replace("/", "")
-        for suffix in ["A10", "A4", "A6", "D", "I"]:
-            time_str = time_str.replace(suffix, "")
+        for suffix in ["A10", "A4", "A6", "D", "I"]: time_str = time_str.replace(suffix, "")
         
-        if len(time_str) <= 2:
-            formatted_time = f"{time_str.zfill(2)}:00"
-        elif len(time_str) == 3:
-            formatted_time = f"0{time_str}:{time_str[1:]}"
-        elif len(time_str) == 4:
-            formatted_time = f"{time_str[:2]}:{time_str[2:]}"
-        else:
-            formatted_time = time_str
+        if len(time_str) <= 2: formatted_time = f"{time_str.zfill(2)}:00"
+        elif len(time_str) == 3: formatted_time = f"0{time_str}:{time_str[1:]}"
+        elif len(time_str) == 4: formatted_time = f"{time_str[:2]}:{time_str[2:]}"
+        else: formatted_time = time_str
 
         anonimo = False
         if is_info:
@@ -137,12 +138,10 @@ async def handle_time_poll(update, context):
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. FUNZIONE PRINCIPALE ED ELENCO DEGLI ORARI PROGRAMMATI (LUN-VEN)
+# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (Chiusura a :39 e apertura a :59)
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        print("Errore: TELEGRAM_BOT_TOKEN non trovato!")
-        return
+    if not token: return
 
     threading.Thread(target=run_server, daemon=True).start()
 
@@ -151,37 +150,31 @@ def main():
     time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
-    # Configurazione del programmatore automatico
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
     
-    orari_automatici = [
-        {"ora": 7, "minuto": 40, "label": "08:00"},
-        {"ora": 9, "minuto": 40, "label": "10:00"},
-        {"ora": 12, "minuto": 40, "label": "13:00"},
-        {"ora": 13, "minuto": 40, "label": "14:00"},
-        {"ora": 14, "minuto": 40, "label": "15:00"},
-        {"ora": 17, "minuto": 40, "label": "18:00"},
-        {"ora": 18, "minuto": 40, "label": "19:00"},
-        {"ora": 19, "minuto": 40, "label": "20:00"},
-        {"ora": 20, "minuto": 40, "label": "21:00"},
-        {"ora": 21, "minuto": 40, "label": "22:00"},
-        {"ora": 22, "minuto": 40, "label": "23:00"}
+    # turni orari del gruppo
+    turni = [
+        {"ora_boost": "08:00", "h_chiusura": 7, "m_chiusura": 39, "h_apertura": 7, "m_apertura": 59},
+        {"ora_boost": "10:00", "h_chiusura": 9, "m_chiusura": 39, "h_apertura": 9, "m_apertura": 59},
+        {"ora_boost": "13:00", "h_chiusura": 12, "m_chiusura": 39, "h_apertura": 12, "m_apertura": 59},
+        {"ora_boost": "14:00", "h_chiusura": 13, "m_chiusura": 39, "h_apertura": 13, "m_apertura": 59},
+        {"ora_boost": "15:00", "h_chiusura": 14, "m_chiusura": 39, "h_apertura": 14, "m_apertura": 59},
+        {"ora_boost": "18:00", "h_chiusura": 17, "m_chiusura": 39, "h_apertura": 17, "m_apertura": 59},
+        {"ora_boost": "19:00", "h_chiusura": 18, "m_chiusura": 39, "h_apertura": 18, "m_apertura": 59},
+        {"ora_boost": "20:00", "h_chiusura": 19, "m_chiusura": 39, "h_apertura": 19, "m_apertura": 59},
+        {"ora_boost": "21:00", "h_chiusura": 20, "m_chiusura": 39, "h_apertura": 20, "m_apertura": 59},
+        {"ora_boost": "22:00", "h_chiusura": 21, "m_chiusura": 39, "h_apertura": 21, "m_apertura": 59},
+        {"ora_boost": "23:00", "h_chiusura": 22, "m_chiusura": 39, "h_apertura": 22, "m_apertura": 59}
     ]
     
-    for t in orari_automatici:
-        scheduler.add_job(
-            pianifica_task,
-            'cron',
-            day_of_week='mon-fri',
-            hour=t["ora"],
-            minute=t["minuto"],
-            args=[app, t["label"]]
-        )
+    for t in turni:
+        # Chiude la chat a :39
+        scheduler.add_job(ponte_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
+        # Riapre la chat a :59 per lo START di GroupHelp
+        scheduler.add_job(ponte_apertura, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Programmatore dei turni fissi avviato (attivo solo Lun-Ven)!")
-    
-    # RISOLUZIONE BUG PYTHON 3.14: close_loop=False impedisce i crash all'avvio su Render
+    print("Sistema di blocco chat aggiornato con chiusura a :39!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
