@@ -32,7 +32,6 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
-    # STRUTTURA ESATTA E PULITA COME RICHIESTA
     question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️"
     options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
@@ -40,32 +39,34 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
         poll_message = await app.bot.send_poll(chat_id=chat_id, question=question, options=options, is_anonymous=False)
         await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
         
+        # BLOCCO CHAT: Disattiva la scrittura per i membri semplici
         permissions = ChatPermissions(can_send_messages=False)
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
         print(f"Turno Fisso delle {orario_boost} inviato e chat bloccata!")
     except Exception as e:
         print(f"Errore in fase di chiusura chat: {e}")
 
-# 2. FUNZIONE AUTOMATICA :59 (SBLOCCO CHAT PER LASCIARE SPAZIO A GROUPHELP)
+# 2. FUNZIONE AUTOMATICA :59 (SBLOCCO CHAT PERSONALIZZATO SULLA TUA FOTO)
 async def task_apertura_chat(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
     try:
+        # SBLOCCO MIRATO: Attiva SOLO i permessi che si vedono accesi nel tuo screenshot
         permissions = ChatPermissions(
-            can_send_messages=True,
-            can_send_audios=True,
-            can_send_documents=True,
-            can_send_photos=True,
-            can_send_videos=True,
-            can_send_video_notes=True,
-            can_send_voice_notes=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-            can_add_web_page_previews=True
+            can_send_messages=True,       # Inviare messaggi di testo 🔵
+            can_send_videos=True,         # Video 🔵
+            can_send_voice_notes=True,     # Messaggi vocali 🔵
+            can_send_other_messages=True,  # Inviare reazioni 🔵
+            can_send_photos=False,         # Foto ⚪ (Disattivato)
+            can_send_audios=False,         # Musica ⚪ (Disattivato)
+            can_send_documents=False,      # File ⚪ (Disattivato)
+            can_send_video_notes=False,    # Videomessaggi ⚪ (Disattivato)
+            can_send_polls=False,          # Sondaggi ⚪ (Disattivato)
+            can_add_web_page_previews=False # Link con anteprima ⚪ (Disattivato)
         )
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Chat sbloccata con successo per il boost delle {orario_boost}!")
+        print(f"Chat sbloccata ripristinando i permessi standard del gruppo per le {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
@@ -125,7 +126,7 @@ async def handle_time_poll(update, context):
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (Sincronizzata in modo asincrono nativo)
+# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
@@ -137,7 +138,6 @@ def main():
     time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
-    # CORREZIONE: Schedulatore asincrono nativo che si interfaccia direttamente con Telegram
     scheduler = AsyncIOScheduler(timezone=ROMA_TZ)
     
     turni = [
@@ -159,7 +159,7 @@ def main():
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Orologio asincrono allineato e avviato correttamente!")
+    print("Sistema avviato con sblocco permessi personalizzato!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
