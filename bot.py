@@ -27,37 +27,31 @@ def run_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
-# 1. FUNZIONE DELLE :39 (INVIA SONDAGGIO, PINNA E CHIUDE CHAT)
+# 1. FUNZIONE AUTOMATICA :39 (TURNO FISSO ISTITUZIONALE + BLOCCO CHAT)
 async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
-    varianti_singole = [
-        {"question": f"🚀 BOOST ARTICOLO DELLE {orario_boost} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇", "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]},
-        {"question": f"⏰ ORE {orario_boost} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇", "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]},
-        {"question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {orario_boost}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇", "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]}
-    ]
-    scelta = random.choice(varianti_singole)
+    # Grafica fissa e pulita come da te richiesta per gli appuntamenti giornalieri
+    question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️\n\nPartecipi al turno fisso di adesso? Clicca sotto! 👇"
+    options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
     try:
-        # Invia e fissa il sondaggio
-        poll_message = await app.bot.send_poll(chat_id=chat_id, question=scelta["question"], options=scelta["options"], is_anonymous=False)
+        poll_message = await app.bot.send_poll(chat_id=chat_id, question=question, options=options, is_anonymous=False)
         await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
         
-        # BLOCCO CHAT: Toglie i permessi di scrittura ai membri semplici
         permissions = ChatPermissions(can_send_messages=False)
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Sondaggio delle {orario_boost} inviato e chat bloccata al minuto :39!")
+        print(f"Turno Fisso delle {orario_boost} inviato e chat bloccata!")
     except Exception as e:
         print(f"Errore in fase di chiusura chat: {e}")
 
-# 2. FUNZIONE DELLE :59 (SBLOCCA LA CHAT PER LASCIARE SPAZIO A GROUPHELP)
+# 2. FUNZIONE AUTOMATICA :59 (SBLOCCO CHAT PER LASCIARE SPAZIO A GROUPHELP)
 async def task_apertura_chat(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
     try:
-        # SBLOCCO CHAT: Ripristina tutti i permessi normali di scrittura per il gruppo
         permissions = ChatPermissions(
             can_send_messages=True,
             can_send_audios=True,
@@ -71,7 +65,7 @@ async def task_apertura_chat(app, orario_boost):
             can_add_web_page_previews=True
         )
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Chat sbloccata con successo al minuto :59 per il boost delle {orario_boost}!")
+        print(f"Chat sbloccata con successo per il boost delle {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
@@ -81,9 +75,9 @@ def ponte_chiusura(app, orario_boost):
 def ponte_apertura(app, orario_boost):
     asyncio.run_coroutine_threadsafe(task_apertura_chat(app, orario_boost), app.loop)
 
-# 3. GESTIONE COMANDI MANUALI
+# 3. GESTIONE COMANDI MANUALI ADMIN (GRAFICHE FLASH CASUALI)
 async def start(update, context):
-    await update.message.reply_text("Bot attivo con automazione turni (Chiusura a :39, sblocco a :59).")
+    await update.message.reply_text("Bot attivo. Turni fissi automatici (Lun-Ven) e Turni Flash manuali attivi.")
 
 async def handle_time_poll(update, context):
     try:
@@ -103,35 +97,35 @@ async def handle_time_poll(update, context):
         else: formatted_time = time_str
 
         anonimo = False
+        options = ["🟩 Ci sono! 💯", "🟥 No, salto questo turno"]
+
         if is_info:
             anonimo = True
             question = f"⏰ {formatted_time} 👉 BOOST ARTICOLO ❤️ CON MESSAGGIO INFO 📩\n\n⚠️ Accessibile solo a 10 link max ⚠️\nInviare messaggi reali all'articolo/no emoticon 🚨"
             options = ["Yesss ❤️💌", "✖️"]
         elif is_a4:
             question = f"⏰ {formatted_time} 👉 🚀BOOST ARMADIO 🚪X4 ❤️\n\nSi pubblica il link armadio Vinted, si ricambia con 4 LIKE ❤️ ogni armadio pubblicato."
-            options = ["🟩 Ci sono! 💯", "🟥 No, salto questo turno"]
         elif is_a6:
             question = f"⏰ {formatted_time} 👉 🚀BOOST ARMADIO 🚪X6 ❤️\n\nSi pubblica il link armadio Vinted, si ricambia con 6 LIKE ❤️ ogni armadio pubblicato."
-            options = ["🟩 Ci sono! 💯", "🟥 No, salto questo turno"]
         elif is_a10:
             question = f"⏰ {formatted_time} 👉 🚀BOOST ARMADIO 🚪X10 ❤️\n\nSi pubblica il link armadio Vinted, si ricambia con 10 LIKE ❤️ ogni armadio pubblicato."
-            options = ["🟩 Ci sono! 💯", "🟥 No, salto questo turno"]
         elif is_double:
-            varianti_doppie = [
-                {"question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇", "options": ["🟩 Sì, partecipo a entrambi! 💯", "🟥 No, salto questo turno"]},
-                {"question": f"⏰ ORE {formatted_time} ➡️ DOPPIO BOOST 💖💖\n\nVota sotto se ci sei adesso: 👇", "options": ["🟩 CI SONO PER ENTRAMBI! 🔥", "🟥 NON CI SONO ❌"]},
-                {"question": f"👋 Ragazzi, c'è il DOPPIO BOOST! (Ore {formatted_time}) 💖💖\n\nChi vuole fare doppietta di visualizzazioni adesso? 👇", "options": ["🟩 Io ci sono per tutti e due! 🙋‍♀️", "🟥 Io passo"]}
+            # DOPPIO FLASH (Se lanciato con la D manuale)
+            varianti_doppie_flash = [
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO DOPPIO FLASH ⚡\n\nDoppia giocata rapida! Vuoi partecipare adesso? 👇",
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO DOPPIO FLASH ⚡\n\nCarichi per la doppietta extra? Ci sei? 👇",
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO DOPPIO FLASH ⚡\n\nSpingiamo questi due post al volo! Sei attiva? 👇"
             ]
-            scelta = random.choice(varianti_doppie)
-            question, options = scelta["question"], scelta["options"]
+            question = random.choice(varianti_doppie_flash)
+            options = ["🟩 CI SONO PER ENTRAMBI! 🔥", "🟥 NON CI SONO ❌"]
         else:
-            varianti_singole = [
-                {"question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇", "options": ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]},
-                {"question": f"⏰ ORE {formatted_time} ➡️ BOOST ARTICOLO ❤️\n\nVota sotto se ci sei adesso: 👇", "options": ["🟩 CI SONO! 🔥", "🟥 NON CI SONO ❌"]},
-                {"question": f"👋 Ragazzi, è l'ora del BOOST! (Ore {formatted_time}) ❤️\n\nChi è attivo e vuole spingere il proprio articolo? 👇", "options": ["🟩 Io sono attivo! 🙋‍♀️", "🟥 Io non riesco ora"]}
+            # SINGOLO FLASH RANDOM (Comando manuale standard, es: /14)
+            varianti_singole_flash = [
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO FLASH ⚡\n\nGiocata extra veloce! Vuoi partecipare? 👇",
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO FLASH ⚡\n\nUnisciti al volo al boost rapido! Ci sei? 👇",
+                f"⏱️ {formatted_time} 🎯 BOOST ARTICOLO FLASH ⚡\n\nChi è attiva in chat adesso per spingere il post? Clicca sotto! 👇"
             ]
-            scelta = random.choice(varianti_singole)
-            question, options = scelta["question"], scelta["options"]
+            question = random.choice(varianti_singole_flash)
 
         await context.bot.send_poll(chat_id=update.effective_chat.id, question=question, options=options, is_anonymous=anonimo)
     except Exception as e:
@@ -170,7 +164,7 @@ def main():
         scheduler.add_job(ponte_apertura, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema automatico attivo!")
+    print("Sistema avviato con differenziazione Fissi/Flash!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
