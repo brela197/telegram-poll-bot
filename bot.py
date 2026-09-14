@@ -28,7 +28,7 @@ async def start(update, context):
         "Ciao! Il bot è attivo con tutte le opzioni grafiche.\n\n"
         "• `/8` o `/730` per sondaggio Singolo (Random)\n"
         "• `/8D` o `/730D` per sondaggio Doppio (Random)\n"
-        "• `/8I` o `/730I` per sondaggio Anonimo Con Messaggio Info ✉️\n"
+        "• `/8I` o `/730I` per sondaggio Anonimo Con Messaggio Info ✉\n"
         "• `/8A4` o `/730A4` per sondaggio Boost Armadio X4 🚪\n"
         "• `/8A6` o `/730A6` per sondaggio Boost Armadio X6 🚪\n"
         "• `/8A10` o `/730A10` per sondaggio Boost Armadio X10 🚪"
@@ -67,14 +67,14 @@ async def handle_time_poll(update, context):
 
         # LOGICA DI CONFIGURAZIONE DEL TESTO E DELLE OPZIONI
         if is_info:
-            # SONDAGGIO ANONIMO CON MESSAGGIO INFO (Layout pulito e ordinato)
+            # SONDAGGIO ANONIMO CON MESSAGGIO INFO (Opzioni aggiornate ❤️💌)
             anonimo = True
             question = (
                 f"⏰ {formatted_time} 👉 BOOST ARTICOLO ❤️ CON MESSAGGIO INFO 📩\n\n"
                 f"⚠️ Accessibile solo a 10 link max ⚠️\n"
                 f"Inviare messaggi reali all'articolo/no emoticon 🚨"
             )
-            options = ["Yesss 🍊🍊🍊", "✖️"]
+            options = ["Yesss ❤️💌", "✖️"]
             
         elif is_a4:
             # 🚪 BOOST ARMADIO X4
@@ -98,7 +98,7 @@ async def handle_time_poll(update, context):
             )
             
         elif is_double:
-            # SONDAGGI DOPPI (Casuali - Vecchia logica mantenuta)
+            # SONDAGGI DOPPI (Casuali)
             varianti_doppie = [
                 {
                     "question": f"🚀 DOPPIO BOOST DELLE {formatted_time} 💖💖\n\nPartecipi al doppio boost di adesso? Clicca sotto! 👇",
@@ -118,7 +118,7 @@ async def handle_time_poll(update, context):
             options = scelta["options"]
             
         else:
-            # SONDAGGI SINGOLI (Casuali - Vecchia logica mantenuta)
+            # SONDAGGI SINGOLI (Casuali)
             varianti_singole = [
                 {
                     "question": f"🚀 BOOST ARTICOLO DELLE {formatted_time} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
@@ -159,7 +159,7 @@ def main():
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
-    # Filtro Regex corretto senza l'opzione invalida
+    # Filtro Regex per intercettare i suffissi
     time_filter = filters.Regex(r"^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
