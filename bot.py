@@ -6,7 +6,7 @@ from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pytz import timezone
 
 ROMA_TZ = timezone('Europe/Rome')
@@ -32,7 +32,8 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
-    question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️\n\nPartecipi al turno fisso di adesso? Clicca sotto! 👇"
+    # STRUTTURA ESATTA E PULITA COME RICHIESTA
+    question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️"
     options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
     try:
@@ -67,12 +68,6 @@ async def task_apertura_chat(app, orario_boost):
         print(f"Chat sbloccata con successo per il boost delle {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
-
-def ponte_chiusura(app, orario_boost):
-    asyncio.run_coroutine_threadsafe(task_sondaggio_e_chiusura(app, orario_boost), app.loop)
-
-def ponte_apertura(app, orario_boost):
-    asyncio.run_coroutine_threadsafe(task_apertura_chat(app, orario_boost), app.loop)
 
 # 3. GESTIONE COMANDI MANUALI ADMIN (GRAFICHE FLASH CASUALI)
 async def start(update, context):
@@ -126,11 +121,11 @@ async def handle_time_poll(update, context):
             ]
             question = random.choice(varianti_singole_flash)
 
-        await context.bot.send_poll(chat_id=update.effective_chat.id, question=question, options=options, is_anonymous=anonimo)
+        await context.bot.send_poll(update.effective_chat.id, question=question, options=options, is_anonymous=anonimo)
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN
+# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (Sincronizzata in modo asincrono nativo)
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
@@ -139,12 +134,11 @@ def main():
 
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
-    
-    # MODIFICA APPLICATA: (?i) rende il filtro insensibile a maiuscole/minuscole in modo nativo su Telegram
     time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
-    scheduler = BackgroundScheduler(timezone=ROMA_TZ)
+    # CORREZIONE: Schedulatore asincrono nativo che si interfaccia direttamente con Telegram
+    scheduler = AsyncIOScheduler(timezone=ROMA_TZ)
     
     turni = [
         {"ora_boost": "08:00", "h_chiusura": 7, "m_chiusura": 39, "h_apertura": 7, "m_apertura": 59},
@@ -161,12 +155,13 @@ def main():
     ]
     
     for t in turni:
-        scheduler.add_job(ponte_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
-        scheduler.add_job(ponte_apertura, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
+        scheduler.add_job(task_sondaggio_e_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
+        scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato correttamente!")
+    print("Orologio asincrono allineato e avviato correttamente!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
     main()
+    
