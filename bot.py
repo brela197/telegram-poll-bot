@@ -1,6 +1,7 @@
 import os
 import threading
 import random
+import asyncio
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
@@ -30,13 +31,11 @@ def run_server():
 
 # 2. FUNZIONAMENTO PER L'INVIO AUTOMATICO E IL FISSAGGIO (PIN) DEL SONDAGGIO
 async def invia_sondaggio_automatico(app, orario_boost):
-    # Recupera l'ID del gruppo dalle impostazioni di Render
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id:
         print("Errore: TELEGRAM_CHAT_ID non configurato nelle variabili d'ambiente!")
         return
 
-    # Grafiche casuali (Tutte per ARTICOLO NORMALE)
     varianti_singole = [
         {
             "question": f"🚀 BOOST ARTICOLO DELLE {orario_boost} ❤️\n\nPartecipi al boost di adesso? Clicca sotto! 👇",
@@ -54,14 +53,12 @@ async def invia_sondaggio_automatico(app, orario_boost):
     scelta = random.choice(varianti_singole)
 
     try:
-        # Invia il sondaggio nel gruppo
         poll_message = await app.bot.send_poll(
             chat_id=chat_id,
             question=scelta["question"],
             options=scelta["options"],
             is_anonymous=False
         )
-        # AUTOMATISMO: Fissa il sondaggio in alto nel gruppo in modo silenzioso
         await app.bot.pin_chat_message(
             chat_id=chat_id,
             message_id=poll_message.message_id,
@@ -71,9 +68,13 @@ async def invia_sondaggio_automatico(app, orario_boost):
     except Exception as e:
         print(f"Errore nell'invio/fissaggio automatico: {e}")
 
-# Funzione ponte per far dialogare il pianificatore con Telegram
 def pianifica_task(app, orario_boost):
-    app.loop.create_task(invia_sondaggio_automatico(app, orario_boost))
+    try:
+        loop = app.loop
+        if loop and loop.is_running():
+            asyncio.run_coroutine_threadsafe(invia_sondaggio_automatico(app, orario_boost), loop)
+    except Exception as e:
+        print(f"Errore nel passaggio del task al loop: {e}")
 
 # 3. GESTIONE DEI COMANDI MANUALI (Attivi 7 giorni su 7)
 async def start(update, context):
@@ -153,7 +154,6 @@ def main():
     # Configurazione del programmatore automatico
     scheduler = BackgroundScheduler(timezone=ROMA_TZ)
     
-    # Orari di invio impostati esattamente 20 minuti prima del boost reale
     orari_automatici = [
         {"ora": 7, "minuto": 40, "label": "08:00"},
         {"ora": 9, "minuto": 40, "label": "10:00"},
@@ -168,7 +168,6 @@ def main():
         {"ora": 22, "minuto": 40, "label": "23:00"}
     ]
     
-    # Il parametro day_of_week='mon-fri' blocca l'esecuzione nel weekend
     for t in orari_automatici:
         scheduler.add_job(
             pianifica_task,
@@ -181,7 +180,9 @@ def main():
     
     scheduler.start()
     print("Programmatore dei turni fissi avviato (attivo solo Lun-Ven)!")
-    app.run_polling()
+    
+    # RISOLUZIONE BUG PYTHON 3.14: close_loop=False impedisce i crash all'avvio su Render
+    app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
     main()
