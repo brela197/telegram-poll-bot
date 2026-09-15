@@ -27,32 +27,55 @@ def run_server():
     server = HTTPServer(('0.0.0.0', port), SimpleHandler)
     server.serve_forever()
 
-# 1. FUNZIONE AUTOMATICA :39 (TURNO FISSO ISTITUZIONALE + BLOCCO CHAT)
+# 1. FUNZIONE AUTOMATICA :39 (AVVISO 📣 + SONDAGGIO ⏰ + BLOCCO CHAT 🔒)
 async def task_sondaggio_e_chiusura(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
+
+    # Calcolo automatico dell'orario di riapertura (un'ora prima, al minuto 59)
+    try:
+        ora_int = int(orario_boost.split(":")[0])
+        ora_apertura = ora_int - 1 if ora_int > 0 else 23
+        orario_start_preciso = f"{str(ora_apertura).zfill(2)}:59"
+    except Exception:
+        orario_start_preciso = "XX:59"
+
+    # Messaggio di avviso super dettagliato con il minuto :59 richiesto
+    avviso_testo = (
+        f"📣 ATTENZIONE GRUPPO SVINTED BOOSTGRATIS 🤫\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔒 <b>La chat viene momentaneamente chiusa per le votazioni del turno delle {orario_boost}.</b>\n\n"
+        f"🗳️ <i>Sotto trovate il sondaggio ufficiale. Votate la vostra presenza!</i>\n"
+        f"🏁 <b>La chat riaprirà in automatico allo START delle {orario_start_preciso}.</b>"
+    )
 
     question = f"⏰ {orario_boost} 👉🏻 BOOST ARTICOLO ❤️"
     options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
     try:
+        # Invia l'avviso
+        await app.bot.send_message(chat_id=chat_id, text=avviso_testo, parse_mode="HTML")
+        
+        # Aspetta 5 secondi
+        await asyncio.sleep(5)
+        
+        # Invia il sondaggio e lo fissa in alto
         poll_message = await app.bot.send_poll(chat_id=chat_id, question=question, options=options, is_anonymous=False)
         await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
         
-        # BLOCCO CHAT: Disattiva la scrittura per i membri semplici
+        # Chiude la chat per gli utenti semplici
         permissions = ChatPermissions(can_send_messages=False)
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Turno Fisso delle {orario_boost} inviato e chat bloccata!")
+        print(f"Avviso e Sondaggio delle {orario_boost} inviati. Chat bloccata!")
     except Exception as e:
         print(f"Errore in fase di chiusura chat: {e}")
 
-# 2. FUNZIONE AUTOMATICA :59 (SBLOCCO CHAT PERSONALIZZATO SULLA TUA FOTO)
+# 2. FUNZIONE AUTOMATICA :59 (SBLOCCO CHAT CON RESTRIZIONI DELLA FOTO)
 async def task_apertura_chat(app, orario_boost):
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if not chat_id: return
 
     try:
-        # SBLOCCO MIRATO: Attiva SOLO i permessi che si vedono accesi nel tuo screenshot
         permissions = ChatPermissions(
             can_send_messages=True,       # Inviare messaggi di testo 🔵
             can_send_videos=True,         # Video 🔵
@@ -66,13 +89,13 @@ async def task_apertura_chat(app, orario_boost):
             can_add_web_page_previews=False # Link con anteprima ⚪ (Disattivato)
         )
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
-        print(f"Chat sbloccata ripristinando i permessi standard del gruppo per le {orario_boost}!")
+        print(f"Chat sbloccata mantendo le limitazioni per le {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
 # 3. GESTIONE COMANDI MANUALI ADMIN (GRAFICHE FLASH CASUALI)
 async def start(update, context):
-    await update.message.reply_text("Bot attivo. Turni fissi automatici (Lun-Ven) e Turni Flash manuali attivi.")
+    await update.message.reply_text("Bot attivo. Avviso + Turni fissi automatici (Lun-Ven) e Turni Flash manuali pronti.")
 
 async def handle_time_poll(update, context):
     try:
@@ -159,14 +182,12 @@ async def main_async():
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato con sblocco permessi personalizzato!")
+    print("Sistema avviato con orario START dinamico!")
     
-    # Inizializzazione corretta asincrona dell'applicazione prima del polling
     await app.initialize()
     await app.start()
     await app.updater.start_polling(close_loop=False)
     
-    # Mantiene il loop attivo all'infinito per non far spegnere i timer
     while True:
         await asyncio.sleep(3600)
 
@@ -178,4 +199,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    
