@@ -83,10 +83,9 @@ async def task_apertura_chat(app, orario_boost):
         print(f"Chat sbloccata mantendo le limitazioni per le {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
-
 # 3. GESTIONE COMANDI MANUALI ADMIN
 async def start(update, context):
-    await update.message.reply_text("Bot attivo con supporto orari universali (es. /h9i, /14a6).")
+    await update.message.reply_text("Bot attivo con formattazione orario corretta.")
 
 async def handle_time_poll(update, context):
     try:
@@ -102,13 +101,16 @@ async def handle_time_poll(update, context):
         for suffix in ["A10", "A4", "A6", "D", "I"]:
             time_str = time_str.replace(suffix, "")
         
+        # CORREZIONE COMPLETA MATEMATICA ORARIO: Isola ore e minuti evitando sdoppiamenti
         if len(time_str) == 1:
             formatted_time = f"0{time_str}:00"
         elif len(time_str) == 2:
             formatted_time = f"{time_str}:00"
         elif len(time_str) == 3:
-            formatted_time = f"0{time_str}:{time_str[1:]}"
+            # Es: "930" -> ore "09" e minuti "30"
+            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
         elif len(time_str) == 4:
+            # Es: "1430" -> ore "14" e minuti "30"
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
             formatted_time = time_str
@@ -153,11 +155,8 @@ def main():
 
     threading.Thread(target=run_server, daemon=True).start()
 
-    # Creazione lineare dell'applicazione per garantire l'ascolto dei messaggi
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
-    
-    # Filtro universale per intercettare qualsiasi testo
     time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
@@ -181,11 +180,8 @@ def main():
         scheduler.add_job(task_sondaggio_e_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
-    # Avvio dello schedulatore all'interno del loop esistente
     scheduler.start()
-    print("Sistema avviato con ricevitore comandi standard!")
-    
-    # Avvio classico e super reattivo in polling per non perdere i messaggi
+    print("Sistema avviato con formattazione orari corti reattiva!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
