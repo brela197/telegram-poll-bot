@@ -83,9 +83,9 @@ async def task_apertura_chat(app, orario_boost):
         print(f"Chat sbloccata mantendo le limitazioni per le {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
-# 3. GESTIONE COMANDI MANUALI ADMIN
+        # 3. GESTIONE COMANDI MANUALI ADMIN
 async def start(update, context):
-    await update.message.reply_text("Bot attivo con formattazione orario corretta.")
+    await update.message.reply_text("Bot attivo con orario 10:00 rimosso dagli automatismi.")
 
 async def handle_time_poll(update, context):
     try:
@@ -101,16 +101,13 @@ async def handle_time_poll(update, context):
         for suffix in ["A10", "A4", "A6", "D", "I"]:
             time_str = time_str.replace(suffix, "")
         
-        # CORREZIONE COMPLETA MATEMATICA ORARIO: Isola ore e minuti evitando sdoppiamenti
         if len(time_str) == 1:
             formatted_time = f"0{time_str}:00"
         elif len(time_str) == 2:
             formatted_time = f"{time_str}:00"
         elif len(time_str) == 3:
-            # Es: "930" -> ore "09" e minuti "30"
-            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+            formatted_time = f"0{time_str}:{time_str[1:]}"
         elif len(time_str) == 4:
-            # Es: "1430" -> ore "14" e minuti "30"
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
             formatted_time = time_str
@@ -148,7 +145,7 @@ async def handle_time_poll(update, context):
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN
+# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (TURNO DELLE 10:00 RIMOSSO)
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
@@ -164,7 +161,6 @@ def main():
     
     turni = [
         {"ora_boost": "08:00", "h_chiusura": 7, "m_chiusura": 39, "h_apertura": 7, "m_apertura": 59},
-        {"ora_boost": "10:00", "h_chiusura": 9, "m_chiusura": 39, "h_apertura": 9, "m_apertura": 59},
         {"ora_boost": "13:00", "h_chiusura": 12, "m_chiusura": 39, "h_apertura": 12, "m_apertura": 59},
         {"ora_boost": "14:00", "h_chiusura": 13, "m_chiusura": 39, "h_apertura": 13, "m_apertura": 59},
         {"ora_boost": "15:00", "h_chiusura": 14, "m_chiusura": 39, "h_apertura": 14, "m_apertura": 59},
@@ -181,7 +177,7 @@ def main():
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato con formattazione orari corti reattiva!")
+    print("Sistema avviato senza il turno delle 10:00!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
