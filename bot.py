@@ -83,9 +83,10 @@ async def task_apertura_chat(app, orario_boost):
         print(f"Chat sbloccata mantendo le limitazioni per le {orario_boost}!")
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
-        # 3. GESTIONE COMANDI MANUALI ADMIN
+
+# 3. GESTIONE COMANDI MANUALI ADMIN
 async def start(update, context):
-    await update.message.reply_text("Bot attivo con orario 10:00 rimosso dagli automatismi.")
+    await update.message.reply_text("Bot attivo con supporto orari universali (es. /h9i, /14a6).")
 
 async def handle_time_poll(update, context):
     try:
@@ -106,7 +107,7 @@ async def handle_time_poll(update, context):
         elif len(time_str) == 2:
             formatted_time = f"{time_str}:00"
         elif len(time_str) == 3:
-            formatted_time = f"0{time_str}:{time_str[1:]}"
+            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
         elif len(time_str) == 4:
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
@@ -145,7 +146,7 @@ async def handle_time_poll(update, context):
     except Exception as e:
         print(f"Errore comando manuale: {e}")
 
-# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (TURNO DELLE 10:00 RIMOSSO)
+# 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN (ORARIO DELLE 10:00 ELIMINATO)
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
@@ -177,7 +178,7 @@ def main():
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato senza il turno delle 10:00!")
+    print("Sistema ripartito con successo senza il turno delle 10:00!")
     app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
