@@ -39,7 +39,6 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     except Exception:
         orario_start_preciso = "XX:59"
 
-    # Testo ultra-ridotto per il minimo ingombro sul telefono
     avviso_testo = (
         f"📣 <b>ATTENZIONE SVinted BOOSTGRATIS</b> 🤫\n"
         f"🔒 Chat chiusa per il turno delle {orario_boost}.\n"
@@ -51,17 +50,11 @@ async def task_sondaggio_e_chiusura(app, orario_boost):
     options = ["🟩 Sì, ci sono e partecipo! 💯", "🟥 No, salto questo turno"]
 
     try:
-        # Invia l'avviso super compatto
         await app.bot.send_message(chat_id=chat_id, text=avviso_testo, parse_mode="HTML")
-        
-        # Aspetta 5 secondi
         await asyncio.sleep(5)
-        
-        # Invia il sondaggio e lo fissa in alto
         poll_message = await app.bot.send_poll(chat_id=chat_id, question=question, options=options, is_anonymous=False)
         await app.bot.pin_chat_message(chat_id=chat_id, message_id=poll_message.message_id, disable_notification=True)
         
-        # Chiude la chat per gli utenti semplici
         permissions = ChatPermissions(can_send_messages=False)
         await app.bot.set_chat_permissions(chat_id=chat_id, permissions=permissions)
         print(f"Avviso e Sondaggio delle {orario_boost} inviati!")
@@ -91,9 +84,9 @@ async def task_apertura_chat(app, orario_boost):
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
-# 3. GESTIONE COMANDI MANUALI ADMIN (GRAFICHE FLASH CASUALI)
+# 3. GESTIONE COMANDI MANUALI ADMIN (SBLOCCATI PER QUALSIASI FORMATO CIFRE)
 async def start(update, context):
-    await update.message.reply_text("Bot attivo con testi ultra compatti. Turni fissi automatici e Turni Flash pronti.")
+    await update.message.reply_text("Bot attivo con supporto orari universali (es. /h9i, /14a6).")
 
 async def handle_time_poll(update, context):
     try:
@@ -105,14 +98,22 @@ async def handle_time_poll(update, context):
         is_a10 = raw_text.endswith('A10')
         is_double = raw_text.endswith('D') and not (is_a4 or is_a6 or is_a10 or is_info)
         
+        # Isola puramente i numeri inseriti
         time_str = raw_text.replace("/H", "").replace("/", "")
         for suffix in ["A10", "A4", "A6", "D", "I"]:
             time_str = time_str.replace(suffix, "")
         
-        if len(time_str) <= 2: formatted_time = f"{time_str.zfill(2)}:00"
-        elif len(time_str) == 3: formatted_time = f"0{time_str}:{time_str[1:]}"
-        elif len(time_str) == 4: formatted_time = f"{time_str[:2]}:{time_str[2:]}"
-        else: formatted_time = time_str
+        # FORMATTATORE INTELLIGENTE: Gestisce 1, 2, 3 o 4 cifre inserite a mano
+        if len(time_str) == 1:
+            formatted_time = f"0{time_str}:00"
+        elif len(time_str) == 2:
+            formatted_time = f"{time_str}:00"
+        elif len(time_str) == 3:
+            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+        elif len(time_str) == 4:
+            formatted_time = f"{time_str[:2]}:{time_str[2:]}"
+        else:
+            formatted_time = time_str
 
         anonimo = False
         options = ["🟩 Ci sono! 💯", "🟥 No, salto questo turno"]
@@ -156,6 +157,8 @@ async def main_async():
 
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
+    
+    # Filtro Regex universale per catturare qualsiasi lunghezza di orario
     time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
@@ -180,7 +183,7 @@ async def main_async():
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
     scheduler.start()
-    print("Sistema avviato con testo ultra-corto!")
+    print("Sistema avviato con supporto orari corti e anonimato info!")
     
     await app.initialize()
     await app.start()
