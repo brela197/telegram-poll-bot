@@ -84,7 +84,7 @@ async def task_apertura_chat(app, orario_boost):
     except Exception as e:
         print(f"Errore in fase di apertura chat: {e}")
 
-# 3. GESTIONE COMANDI MANUALI ADMIN (SBLOCCATI PER QUALSIASI FORMATO CIFRE)
+# 3. GESTIONE COMANDI MANUALI ADMIN
 async def start(update, context):
     await update.message.reply_text("Bot attivo con supporto orari universali (es. /h9i, /14a6).")
 
@@ -98,18 +98,16 @@ async def handle_time_poll(update, context):
         is_a10 = raw_text.endswith('A10')
         is_double = raw_text.endswith('D') and not (is_a4 or is_a6 or is_a10 or is_info)
         
-        # Isola puramente i numeri inseriti
         time_str = raw_text.replace("/H", "").replace("/", "")
         for suffix in ["A10", "A4", "A6", "D", "I"]:
             time_str = time_str.replace(suffix, "")
         
-        # FORMATTATORE INTELLIGENTE: Gestisce 1, 2, 3 o 4 cifre inserite a mano
         if len(time_str) == 1:
             formatted_time = f"0{time_str}:00"
         elif len(time_str) == 2:
             formatted_time = f"{time_str}:00"
         elif len(time_str) == 3:
-            formatted_time = f"0{time_str[0]}:{time_str[1:]}"
+            formatted_time = f"0{time_str}:{time_str[1:]}"
         elif len(time_str) == 4:
             formatted_time = f"{time_str[:2]}:{time_str[2:]}"
         else:
@@ -149,16 +147,17 @@ async def handle_time_poll(update, context):
         print(f"Errore comando manuale: {e}")
 
 # 4. PROGRAMMAZIONE AUTOMATICA LUN-VEN
-async def main_async():
+def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token: return
 
     threading.Thread(target=run_server, daemon=True).start()
 
+    # Creazione lineare dell'applicazione per garantire l'ascolto dei messaggi
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     
-    # Filtro Regex universale per catturare qualsiasi lunghezza di orario
+    # Filtro universale per intercettare qualsiasi testo
     time_filter = filters.Regex(r"(?i)^/(h)?\d{1,4}([dDiI]|(A4)|(A6)|(A10))?$")
     app.add_handler(MessageHandler(time_filter, handle_time_poll))
 
@@ -182,21 +181,13 @@ async def main_async():
         scheduler.add_job(task_sondaggio_e_chiusura, 'cron', day_of_week='mon-fri', hour=t["h_chiusura"], minute=t["m_chiusura"], args=[app, t["ora_boost"]])
         scheduler.add_job(task_apertura_chat, 'cron', day_of_week='mon-fri', hour=t["h_apertura"], minute=t["m_apertura"], args=[app, t["ora_boost"]])
     
+    # Avvio dello schedulatore all'interno del loop esistente
     scheduler.start()
-    print("Sistema avviato con supporto orari corti e anonimato info!")
+    print("Sistema avviato con ricevitore comandi standard!")
     
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling(close_loop=False)
-    
-    while True:
-        await asyncio.sleep(3600)
-
-def main():
-    try:
-        asyncio.run(main_async())
-    except Exception as e:
-        print(f"Errore ciclo principale: {e}")
+    # Avvio classico e super reattivo in polling per non perdere i messaggi
+    app.run_polling(close_loop=False)
 
 if __name__ == '__main__':
     main()
+    
